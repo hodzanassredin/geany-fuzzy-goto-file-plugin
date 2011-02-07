@@ -1,0 +1,18 @@
+what is it:
+	it is dirty prototype of plugin for Geany text editor. It allows to quckly find and open files
+how to install:
+	git clone git@github.com:hodzanassredin/geany-fuzzy-goto-file-plugin.git
+	cd geany-fuzzy-goto-file-plugin
+	chmod +x build.sh
+	./build.sh
+	
+how to setup:
+	create project and set base path or go to Edit->Preferences and set Startup path
+	go to preferences->keybindings and find FuzzyFileSearch group and set keys for fuzzy search open
+
+how to use:
+	click hotkeys or click Tools->Fuzzy search
+	use
+	
+how to improve
+	send me a patch :-)
