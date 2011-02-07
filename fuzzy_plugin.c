@@ -35,12 +35,54 @@ gint close_dialog( GtkWidget *widget, GdkEvent  *event, gpointer   data )
   return(FALSE);
 }
 
+
 gint open_file( GtkWidget *widget, GdkEvent  *event, gpointer   data )
 {
-	GtkTreeSelection *selection =  gtk_tree_view_get_selection(GTK_TREE_VIEW (tree));
+	GtkTreeSelection *selection;
+	GtkTreeModel     *model;
+	GtkTreeIter       iter;
+
+	/* This will only work in single or browse selection mode! */
+
+	selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(tree));
+	if (gtk_tree_selection_get_selected(selection, &model, &iter))
+	{
+		gchar *name;
+
+		gtk_tree_model_get (model, &iter, 0, &name, -1);
+		g_print ("selected row is: %s\n", name);
+		document_open_file(name, FALSE, NULL, NULL);
+		
+		g_free(name);
+	}
+	
 	gtk_widget_destroy(widget);
 	return(FALSE);
 }
+
+void view_onRowActivated (GtkTreeView        *treeview,
+                       GtkTreePath        *path,
+                       GtkTreeViewColumn  *col,
+                       gpointer            userdata)
+  {
+    GtkTreeModel *model;
+    GtkTreeIter   iter;
+
+    g_print ("A row has been double-clicked!\n");
+
+    model = gtk_tree_view_get_model(treeview);
+
+    if (gtk_tree_model_get_iter(model, &iter, path))
+    {
+       gchar *name;
+
+       gtk_tree_model_get(model, &iter, 0, &name, -1);
+
+       g_print ("Double-clicked row contains name %s\n", name);
+		document_open_file(name, FALSE, NULL, NULL);
+       g_free(name);
+    }
+  }
 
 void fuzzy_init()
 {
@@ -65,7 +107,7 @@ void fuzzy_populate_files(const gchar *needle)
 	else
 		dir = geany->prefs->default_open_path;
 		
-	list  =  utils_get_file_list(dir, NULL, NULL);
+	
 	
 	GtkTreeViewColumn *oldCol = gtk_tree_view_get_column(GTK_TREE_VIEW (tree), 0);
 	if (oldCol != NULL)
@@ -84,12 +126,12 @@ void fuzzy_populate_files(const gchar *needle)
 	//gtk-tree-view-column-clear
 	//gtk_tree_view_remove_column  
      store = gtk_list_store_new (1, G_TYPE_STRING);
-
+list  =  utils_get_file_list(dir, NULL, NULL);
     if (list != NULL)
 	{
 		foreach_slist_free(node, list)
 		{
-			fname 		= node->data;
+			fname 		= g_strconcat("/", node->data, NULL);
 			uri 		= g_strconcat(dir, fname, NULL);
 			is_dir 		= g_file_test (uri, G_FILE_TEST_IS_DIR);
 			utf8_name 	= utils_get_utf8_from_locale(fname);
@@ -156,6 +198,7 @@ static void item_activate_cb(GtkMenuItem *menuitem, gpointer gdata)
 				scroll = gtk_scrolled_window_new(NULL, NULL);
 				gtk_container_add(GTK_CONTAINER(vbox), scroll);
 					tree = gtk_tree_view_new();
+					g_signal_connect(tree, "row-activated", (GCallback) view_onRowActivated, NULL);
 					fuzzy_populate_files("/");
 					gtk_container_add(GTK_CONTAINER(scroll), tree);
 			bbox = gtk_hbutton_box_new();
@@ -173,16 +216,33 @@ static void item_activate_cb(GtkMenuItem *menuitem, gpointer gdata)
       gtk_widget_show_all(window);
 }
 
-
+static void kb_activate(guint key_id)
+{
+	//gtk_notebook_set_current_page(GTK_NOTEBOOK(geany->main_widgets->sidebar_notebook), page_number);
+	switch (key_id)
+	{
+		case 0:
+			item_activate_cb(NULL, NULL);
+			break;
+	}
+}
 
 void plugin_init(GeanyData *data)
 {
+	GeanyKeyGroup *key_group;
+	
     main_menu_item = gtk_menu_item_new_with_mnemonic("Fuzzy search");
     gtk_widget_show(main_menu_item);
     gtk_container_add(GTK_CONTAINER(geany->main_widgets->tools_menu),
         main_menu_item);
     g_signal_connect(main_menu_item, "activate",
         G_CALLBACK(item_activate_cb), NULL);
+        
+    	/* setup keybindings */
+	key_group = plugin_set_key_group(geany_plugin, "fuzzy_search", 1, NULL);
+
+	keybindings_set_item(key_group, 0, kb_activate,
+		0, 0, "fuzzy_search_open", _("fuzzy search open"), NULL);
 }
 
 void plugin_cleanup(void)
