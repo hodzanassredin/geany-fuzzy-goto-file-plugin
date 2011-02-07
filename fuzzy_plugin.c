@@ -25,7 +25,7 @@ PLUGIN_SET_INFO("FuzzyFileSearch", "Fuzzy search for files in project",
 
 static GtkWidget *main_menu_item = NULL, *tree = NULL;
 static GSList *list = NULL;
-static gchar *dir;
+static gchar *root_dir;
 static GtkCellRenderer     *renderer = NULL;
 static 	GtkListStore  *store = NULL;
 
@@ -35,6 +35,96 @@ gint close_dialog( GtkWidget *widget, GdkEvent  *event, gpointer   data )
   return(FALSE);
 }
 
+gboolean fuzzy_is_ok(const gchar *string1, const gchar *string2)
+{
+	return header_soundex( string1, string2 ) || strstr( string1, string2 ) != NULL ;
+	
+	return TRUE;
+	return strstr( string1, string2 ) != NULL ;
+}
+
+static unsigned char soundex_table[256] = {
+          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+          0,  0, 49, 50, 51,  0, 49, 50,  0,  0, 50, 50, 52, 53, 53,  0,
+         49, 50, 54, 50, 51,  0, 49,  0, 50,  0, 50,  0,  0,  0,  0,  0,
+          0,  0, 49, 50, 51,  0, 49, 50,  0,  0, 50, 50, 52, 53, 53,  0,
+         49, 50, 54, 50, 51,  0, 49,  0, 50,  0, 50,  0,  0,  0,  0,  0,
+          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+};
+
+void  soundexify(const gchar *sound, gchar code[5])
+{
+        guchar *c, last = '\0';
+        gint n;
+
+        for (c = (guchar *) sound; *c && !isalpha (*c); c++);
+        code[0] = toupper (*c);
+        memset (code + 1, '0', 3);
+        for (n = 1; *c && n < 5; c++) {
+                guchar ch = soundex_table[*c];
+
+                if (ch && ch != last) {
+                        code[n++] = ch;
+                        last = ch;
+                }
+        }
+        code[4] = '\0';
+}
+
+//~ gchar *soundex(gchar *word)
+//~ {
+	//~ char mcode[5];
+	//~ soundexify(word, mcode);
+	//~ return mcode;
+//}
+
+gboolean fuzzy_isslash(char c)
+{
+	return c == '/';
+}
+
+gboolean header_soundex (const char *header, const char *match)
+{
+        char mcode[5], hcode[5];
+        const char *p;
+        char c;
+        GString *word;
+        int truth = FALSE;
+
+        soundexify (match, mcode);
+
+        /* split the header into words, and soundexify and compare each one */
+        /* FIXME: Should this convert to utf8, and split based on that, and what not?
+           soundex only makes sense for us-ascii though ... */
+
+        word = g_string_new("");
+        p = header;
+        do {
+                c = *p++;
+                if (c == 0 || fuzzy_isslash(c)) {
+                        if (word->len > 0) {
+                                soundexify (word->str, hcode);
+                                if (strcmp (hcode, mcode) == 0)
+                                        truth = TRUE;
+                        }
+                        g_string_truncate (word, 0);
+                } else if (isalpha (c))
+                        g_string_append_c (word, c);
+        } while (c && !truth);
+        g_string_free (word, TRUE);
+
+        return truth;
+}
 
 gint open_file( GtkWidget *widget, GdkEvent  *event, gpointer   data )
 {
@@ -51,7 +141,8 @@ gint open_file( GtkWidget *widget, GdkEvent  *event, gpointer   data )
 
 		gtk_tree_model_get (model, &iter, 0, &name, -1);
 		g_print ("selected row is: %s\n", name);
-		document_open_file(name, FALSE, NULL, NULL);
+       gchar *path = g_strconcat(root_dir, name, NULL);
+		document_open_file(path, FALSE, NULL, NULL);
 		
 		g_free(name);
 	}
@@ -79,7 +170,8 @@ void view_onRowActivated (GtkTreeView        *treeview,
        gtk_tree_model_get(model, &iter, 0, &name, -1);
 
        g_print ("Double-clicked row contains name %s\n", name);
-		document_open_file(name, FALSE, NULL, NULL);
+       gchar *path = g_strconcat(root_dir, name, NULL);
+		document_open_file(path, FALSE, NULL, NULL);
        g_free(name);
     }
   }
@@ -89,26 +181,56 @@ void fuzzy_init()
 
 }
 
-void fuzzy_populate_files(const gchar *needle)
+void fuzzy_add_dir(gchar *dir, const gchar *needle, GtkTreeIter iter)
 {
-    gboolean is_dir;
-    GSList *node;
+	gboolean is_dir;
     gchar *utf8_name;
     gchar *fname;
+    gchar *subname;    
 	gchar *uri;
+	GSList *node;
+	gchar *path = g_strconcat(root_dir, dir, NULL);
+	list  =  utils_get_file_list(path, NULL, NULL);
+	if (list != NULL)
+	{
+		foreach_slist_free(node, list)
+		{
+			fname 		= g_strconcat("/", node->data, NULL);
+			uri 		= g_strconcat(dir, fname, NULL);
+			gchar *newpath = g_strconcat(root_dir, uri, NULL);
+			is_dir 		= g_file_test (newpath, G_FILE_TEST_IS_DIR);
+			utf8_name 	= utils_get_utf8_from_locale(fname);
+			if (!is_dir)
+			{
+				if(fuzzy_is_ok( uri, needle ))
+				{
+					gtk_list_store_append (store, &iter);
+					gtk_list_store_set (store, &iter, 0, uri, -1);	
+				}
+			}
+			else
+			{
+				fuzzy_add_dir(uri, needle, iter);
+			}
+			g_free(utf8_name);
+			g_free(uri);
+			g_free(fname);
+    	}
+	}
+}
 
+void fuzzy_populate_files(const gchar *needle)
+{
 	GtkTreeIter    iter;
                                    
 	GeanyProject 	*project 	= geany->app->project;
 	GeanyDocument	*doc 		= document_get_current();
 	
 	if (project)
-		dir = project->base_path;
+		root_dir = project->base_path;
 	else
-		dir = geany->prefs->default_open_path;
-		
-	
-	
+		root_dir = geany->prefs->default_open_path;
+
 	GtkTreeViewColumn *oldCol = gtk_tree_view_get_column(GTK_TREE_VIEW (tree), 0);
 	if (oldCol != NULL)
 	{
@@ -126,30 +248,11 @@ void fuzzy_populate_files(const gchar *needle)
 	//gtk-tree-view-column-clear
 	//gtk_tree_view_remove_column  
      store = gtk_list_store_new (1, G_TYPE_STRING);
-list  =  utils_get_file_list(dir, NULL, NULL);
-    if (list != NULL)
-	{
-		foreach_slist_free(node, list)
-		{
-			fname 		= g_strconcat("/", node->data, NULL);
-			uri 		= g_strconcat(dir, fname, NULL);
-			is_dir 		= g_file_test (uri, G_FILE_TEST_IS_DIR);
-			utf8_name 	= utils_get_utf8_from_locale(fname);
-			if (!is_dir)
-			{
-				if( strstr( uri, needle ) != NULL )
-				{
-					gtk_list_store_append (store, &iter);
-					gtk_list_store_set (store, &iter, 0, uri, -1);	
-				}
-			}
-			g_free(utf8_name);
-			g_free(uri);
-			g_free(fname);
-    	}
-	}
+	
+    fuzzy_add_dir("", needle, iter);
 	gtk_tree_view_set_model (GTK_TREE_VIEW (tree), GTK_TREE_MODEL (store));
 }
+
 
 
 static gboolean cb_entry_changed( GtkEditable *entry, GtkTreeView *treeview )
