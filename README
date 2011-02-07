@@ -1,7 +1,7 @@
 WARNING: BUGS, SEG FAULTS AND MEMORY LEAKS INCLUDED
 what is it:
 	it is dirty prototype of plugin for Geany text editor. It allows to quckly find and open files
-how to install:
+how to install on ubuntu:
 	git clone git@github.com:hodzanassredin/geany-fuzzy-goto-file-plugin.git
 	cd geany-fuzzy-goto-file-plugin
 	chmod +x build.sh
