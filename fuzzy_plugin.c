@@ -90,7 +90,7 @@ void  soundexify(const gchar *sound, gchar code[5])
 
 gboolean fuzzy_isslash(char c)
 {
-	return c == '/';
+	return c == '/' || c == '.' || c == '_' || c == '-';
 }
 
 gboolean header_soundex (const char *header, const char *match)
@@ -230,7 +230,7 @@ void fuzzy_populate_files(const gchar *needle)
 		root_dir = project->base_path;
 	else
 		root_dir = geany->prefs->default_open_path;
-
+		
 	GtkTreeViewColumn *oldCol = gtk_tree_view_get_column(GTK_TREE_VIEW (tree), 0);
 	if (oldCol != NULL)
 	{

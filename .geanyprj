@@ -1,0 +1,8 @@
+
+[project]
+name=fuzzy_search
+description=
+base_path=./
+run_cmd=
+regenerate=true
+type=C
