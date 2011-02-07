@@ -1,4 +1,4 @@
-WARNING: BUGS AND MEMORY LEAKS INCLUDED
+WARNING: BUGS, SEG FAULTS AND MEMORY LEAKS INCLUDED
 what is it:
 	it is dirty prototype of plugin for Geany text editor. It allows to quckly find and open files
 how to install:
@@ -8,6 +8,7 @@ how to install:
 	./build.sh
 	
 how to setup:
+	go to tools -> Plugin Manager and enable FuzzyFileSearch plugin
 	create project and set base path or go to Edit->Preferences and set Startup path
 	go to preferences->keybindings and find FuzzyFileSearch group and set keys for fuzzy search open
 
